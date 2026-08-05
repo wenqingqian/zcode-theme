@@ -1,0 +1,8 @@
+# AGENTSPACE 由独立 git 仓库管理, 宿主不追踪
+AGENTSPACE/
+
+# 截图产物
+zcode-theme-demo/
+
+# macOS
+.DS_Store

@@ -1,0 +1,81 @@
+#!/bin/bash
+# ZCode 自动换肤启动器（hack 路线 2：CDP 注入）
+#
+# 用法:
+#   zcode-theme             启动 ZCode 并注入默认主题 (amber)
+#   zcode-theme <主题>       启动并注入指定主题, 如 zcode-theme mint
+#   zcode-theme inject      不重启, 仅对运行中的实例注入主题
+#   zcode-theme inject <主题>  同上, 指定主题, 如 zcode-theme inject latte
+#   zcode-theme off         正常启动（不带调试端口, 不注入）
+#
+# 说明:
+#   - 单实例锁会吞掉启动参数, 需要带端口重启时必须先完全退出
+#   - 已运行且端口已开时走快路径: 只注入不重启
+#   - 注入器优先用同目录 zcode-theme.mjs, 找不到时回退旧安装路径
+#   - 端口被占用可: ZCODE_CDP_PORT=9223 zcode-theme
+set -u
+
+APP="/Applications/ZCode.app"
+PORT="${ZCODE_CDP_PORT:-9222}"
+
+# 注入器路径: 环境变量 > 与启动器同目录 > 旧安装位置
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+INJECTOR="${ZCODE_THEME_INJECTOR:-}"
+if [ -z "$INJECTOR" ]; then
+  if [ -f "$SCRIPT_DIR/zcode-theme.mjs" ]; then
+    INJECTOR="$SCRIPT_DIR/zcode-theme.mjs"
+  else
+    INJECTOR="$HOME/.zcode/workspace/default/zcode-theme.mjs"
+  fi
+fi
+
+running() { pgrep -f '/Applications/ZCode.app/Contents' >/dev/null; }
+port_up() { curl -sf "http://127.0.0.1:${PORT}/json" >/dev/null 2>&1; }
+
+inject() {
+  local theme="${1:-}"
+  if [ -n "$theme" ]; then
+    node "$INJECTOR" inject "$theme" || exit 1
+  else
+    node "$INJECTOR" inject || exit 1
+  fi
+}
+
+cmd="${1:-on}"
+theme="${2:-}"
+
+if [ "$cmd" = "off" ]; then
+  open "$APP"
+  echo "已用普通模式启动（无调试端口）"
+  exit 0
+fi
+
+# 兼容: zcode-theme latte 这类直接给主题的写法
+if [ "$cmd" != "inject" ] && [ -n "$cmd" ] && [ "$cmd" != "on" ]; then
+  theme="$cmd"
+  cmd="on"
+fi
+
+# 快路径: app 在跑、端口已开 → 只注入
+if running && port_up; then
+  inject "$theme"
+  echo "✓ 主题已注入到运行中的 ZCode"
+  exit 0
+fi
+
+# 慢路径: 退出 → 带端口重启
+echo "正在退出 ZCode（完全退出才能让调试端口参数生效）..."
+osascript -e 'quit app "ZCode"' >/dev/null 2>&1 || true
+for _ in $(seq 1 30); do running || break; sleep 0.5; done
+
+echo "正在启动 ZCode（调试端口 ${PORT}）..."
+open "$APP" --args "--remote-debugging-port=${PORT}"
+
+for _ in $(seq 1 60); do port_up && break; sleep 0.5; done
+if ! port_up; then
+  echo "✗ 调试端口 ${PORT} 未就绪。可能被占用或旧实例未退净, 试试: ZCODE_CDP_PORT=9223 zcode-theme" >&2
+  exit 1
+fi
+
+inject "$theme"
+echo "✓ 主题已应用"
