@@ -403,55 +403,55 @@ html.theme-zai-dark, html.dark { --shiki-color-text:#ddeae3; --shiki-color-backg
 `;
 
 const DARK_CASTLE = `
-/* 深色变体：Demon Castle（深紫黑 + 绯红 + 烛金 —— 配 castle.jpg 像素恶魔城堡大厅） */
+/* 深色变体：Demon Castle（暗夜漆黑 + 绯红 + 烛金 —— 配 castle.jpg 像素恶魔城堡大厅） */
 .theme-zai-dark, .dark {
-  --color-background:#14131f;            /* 深紫黑（略深于壁纸底色 #272638, 衬出画面） */
-  --color-background-alt:#181725;        /* 次级背景 */
-  --color-background-win-alt:#1d1c2e;    /* 窗口/面板 */
-  --color-header:#1d1c2e;
-  --color-panel:#1d1c2e;
-  --color-sidebar:#14131f;
-  --color-card:#1d1c2e;
-  --color-card-selected:#282741;
-  --color-popover:#1d1c2e;
-  --color-popover-header:#1d1c2e;
-  --color-input:#1d1c2e;
-  --color-menu:#1d1c2e;
-  --color-menu-hover:#282741;
-  --color-tooltip:#1d1c2e;
-  --color-tooltip-tag:#282741;
-  --color-toast:#1d1c2e;
-  --color-tab:#1d1c2e;
-  --color-tab-active:#14131f;
+  --color-background:#0e0e13;            /* 漆黑（近黑底, 衬出壁纸画面） */
+  --color-background-alt:#121218;        /* 次级背景 */
+  --color-background-win-alt:#191920;    /* 窗口/面板 */
+  --color-header:#191920;
+  --color-panel:#191920;
+  --color-sidebar:#0e0e13;
+  --color-card:#191920;
+  --color-card-selected:#23232c;
+  --color-popover:#191920;
+  --color-popover-header:#191920;
+  --color-input:#191920;
+  --color-menu:#191920;
+  --color-menu-hover:#23232c;
+  --color-tooltip:#191920;
+  --color-tooltip-tag:#23232c;
+  --color-toast:#191920;
+  --color-tab:#191920;
+  --color-tab-active:#0e0e13;
   --color-brand:#e2554a;                 /* 品牌/强调色（绯红, 恶魔烛焰） */
   --color-accent:#e2554a;
   --color-primary:#f0e8d4;               /* 烛火暖白 */
   --color-primary-foreground:#2a0e0c;
-  --color-foreground:#e7e1d3;            /* 正文（骨白微暖, 深紫黑上高可读） */
+  --color-foreground:#e7e1d3;            /* 正文（骨白微暖, 黑底上高可读） */
   --color-foreground-subtle:color-mix(in oklab, #e7e1d3 60%, transparent);
   --color-foreground-subtlest:color-mix(in oklab, #e7e1d3 30%, transparent);
-  --color-border:#a99bd626;              /* 暗紫边框（与砖墙同族, 低存在感但可辨） */
-  --color-border-hover:#a99bd640;
-  --color-find-highlight:#4a2430;
+  --color-border:#b0b0c02e;              /* 中性浅灰边框（18%, 黑底上可辨不抢眼） */
+  --color-border-hover:#b0b0c048;
+  --color-find-highlight:#33161d;
   --color-find-highlight-active:#e2554a;
-  --color-interaction-ask-surface:#331c26;
+  --color-interaction-ask-surface:#2b151d;
   --color-interaction-ask-foreground:#f2a08e;
   --color-terminal-cursor:#e2554a;
-  --color-terminal-cursor-accent:#14131f;
+  --color-terminal-cursor-accent:#0e0e13;
   --color-terminal-selection:#e2554a40;
-  --color-terminal-black:#26233a;
+  --color-terminal-black:#23232c;
   --color-terminal-red:#e05a4a;
   --color-terminal-green:#a3b86b;
   --color-terminal-yellow:#e8a83d;       /* 烛金 */
-  --color-terminal-blue:#8a9ad4;         /* 彩窗幽蓝 */
+  --color-terminal-blue:#7e8cc2;         /* 钢铁蓝 */
   --color-terminal-magenta:#b08ad6;
   --color-terminal-cyan:#6bb0a8;
   --color-terminal-white:#d8d2c4;
-  --color-terminal-bright-black:#403d56;
+  --color-terminal-bright-black:#3a3a46;
   --color-terminal-bright-red:#ea7466;
   --color-terminal-bright-green:#b8cc82;
   --color-terminal-bright-yellow:#f0bc5e;
-  --color-terminal-bright-blue:#a2b0e2;
+  --color-terminal-bright-blue:#97a5d8;
   --color-terminal-bright-magenta:#c4a3e2;
   --color-terminal-bright-cyan:#86c4bd;
   --color-terminal-bright-white:#e7e1d3;
@@ -524,7 +524,7 @@ const THEMES = {
   mint:   { dark: DARK_MINT,   light: MINT_LIGHT   },
   sea:    { dark: DARK_MOCHA,  light: LATTE_LIGHT,  image: 'sea.jpg'    },  // 暗蓝海面
   mist:   { dark: DARK_MINT,   light: MINT_LIGHT,   image: 'mist.jpg'   },  // 雾山
-  castle: { dark: DARK_CASTLE, light: CASTLE_LIGHT, image: 'castle.jpg' },  // 像素恶魔城堡大厅
+  castle: { dark: DARK_CASTLE, light: CASTLE_LIGHT, image: 'castle.jpg', shellOpacity: 75, panelVeil: 82, pixelated: true },  // 像素恶魔城堡大厅(更透 + 像素最近邻渲染; 暗图面板遮罩可略薄)
 };
 
 // ---------- 外观槽位配置（~/.config/zcode-theme/config.json）----------
@@ -631,20 +631,22 @@ async function loadImageUrl(path, label) {
 // classes: 作用域外观类列表（['theme-zai-light'] / ['theme-zai-dark'] / 两者）。
 // 图片 data URI 只在一处定义为 CSS 变量 --zcode-wallpaper（var() 在解析前做原始令牌替换,
 // 可安全用于 background 简写）, 各贴图规则引用变量 —— 同一图片在两个槽位间只嵌入一次。
-function wallpaperCss(img, classes, shellAlpha, panelAlpha) {
+// pixelated: 像素风壁纸开启 image-rendering: pixelated —— 非整数倍缩放也保持最近邻锐利。
+function wallpaperCss(img, classes, shellAlpha, panelAlpha, pixelated) {
   const shellVeil = `color-mix(in oklab, var(--color-background) ${shellAlpha}%, transparent)`;
   const panelVeil = `color-mix(in oklab, var(--color-background) ${panelAlpha}%, transparent)`;
   const htmlSel = classes.map((c) => `html.${c}`).join(', ');
   const layer = `var(--zcode-wallpaper) center / cover no-repeat var(--color-background)`;
+  const px = pixelated ? `\n  image-rendering: pixelated; /* 像素风: 最近邻缩放 */` : '';
   const rules = classes.map((c) => {
     const s = `html.${c} `;  // 后代作用域前缀
     return `
 ${s}div.flex.h-dvh.flex-col.overflow-hidden {
-  background: linear-gradient(${shellVeil} 0 100%), ${layer};
+  background: linear-gradient(${shellVeil} 0 100%), ${layer};${px}
 }
 ${s}#content section.rounded-xl,
 ${s}.side-pane-open-tab-shell {
-  background: linear-gradient(${panelVeil} 0 100%), ${layer};
+  background: linear-gradient(${panelVeil} 0 100%), ${layer};${px}
 }
 /* 防御: 壳之下的祖先必须保持透明，否则挡住壳上的图片（含圆角边缘） */
 html.${c}, ${s}body, ${s}#root { background: transparent !important; }`;
@@ -669,10 +671,12 @@ async function buildCss() {
   for (const [image, slotNames] of byImage) {
     const img = await loadImageUrl(resolve(SCRIPT_DIR, 'wallpapers', image), '内置壁纸');
     if (!img) continue;
-    const shellAlpha = 100 - SHELL_OPACITY;
-    const panelAlpha = Math.max(shellAlpha, PANEL_MIN_VEIL);
-    console.log(`壁纸[${slotNames.join('+')} 槽]: wallpapers/${image}（${img.sizeKB}KB, 壳可见度 ${SHELL_OPACITY}%, 面板遮罩 ${panelAlpha}%）`);
-    parts.push(wallpaperCss(img.url, slotNames.map((n) => `theme-zai-${n}`), shellAlpha, panelAlpha));
+    const t = THEMES[slots[slotNames[0]]];
+    const opacity = t.shellOpacity ?? SHELL_OPACITY;
+    const shellAlpha = 100 - opacity;
+    const panelAlpha = Math.max(shellAlpha, t.panelVeil ?? PANEL_MIN_VEIL);
+    console.log(`壁纸[${slotNames.join('+')} 槽]: wallpapers/${image}（${img.sizeKB}KB, 壳可见度 ${opacity}%, 面板遮罩 ${panelAlpha}%${t.pixelated ? ', 像素最近邻渲染' : ''}）`);
+    parts.push(wallpaperCss(img.url, slotNames.map((n) => `theme-zai-${n}`), shellAlpha, panelAlpha, !!t.pixelated));
   }
   // ZCODE_BG_IMAGE: 一次性全局覆盖（两个外观类都写, 置于内置壁纸之后 → 同等优先级靠后生效）, 不写配置
   if (BG_IMAGE) {

@@ -11,7 +11,7 @@ ZCode 桌面应用（Electron）**主题注入工具**：通过 CDP 远程调试
 | `mint` | Mint Tea（薄荷绿） | Midnight Mint（深青黑） | 纯色 |
 | `sea` | Catppuccin Latte | Catppuccin Mocha | **内置暗蓝海面壁纸** |
 | `mist` | Mint Tea | Midnight Mint | **内置雾山壁纸** |
-| `castle` | Castle Stone（石堡米灰） | Demon Castle（深紫黑 + 绯红） | **内置像素恶魔城堡大厅壁纸** |
+| `castle` | Castle Stone（石堡米灰） | Demon Castle（暗夜漆黑 + 绯红地狱火） | **内置像素恶魔城堡大厅壁纸** |
 
 所有主题均含浅色 + 深色变体，跟随 app 外观设置自动切换；壁纸主题的图片在侧栏等透明区域自然透出（聊天区罩浓遮罩保文字可读）。壁纸来源：`sea`/`mist` 来自 [picsum.photos](https://picsum.photos)（id/1019 海面、id/1018 雾山，Unsplash 源图）；`castle` 由 [ansimuz](https://opengameart.org/users/ansimuz) 的哥特教堂像素素材（Gothicvania 系列，公有领域 / public domain）拼合重制——彩窗、骷髅柱、祭坛、石像鬼、烛火大厅。均已重编码为基线 JPEG 随仓库分发。
 
@@ -116,8 +116,8 @@ ZCODE_BG_IMAGE=~/wall.jpg ZCODE_BG_OPACITY=40 zcode-theme    # 可见度调到 4
 
 - **支持格式**：png / jpg / jpeg / webp / gif，单张 ≤ 10MB。**建议用基线（baseline）JPEG**：个别渐进式（progressive）JPEG 位流会卡死 Chromium 合成器（实测截图无响应），内置壁纸已全部重编码为基线
 - **实现方式**：图片以 base64 data URI 内嵌进注入的 CSS（不依赖 `file://` 权限）
-- **壁纸结构**：主壳与聊天区/面板**各自**携带「渐变遮罩 + 图片」的分层背景（每个元素自身不透明），遮罩色跟随主题、深浅色自动适配——刻意不让半透明元素叠在背景图上、也不用 `background-attachment: fixed` 对齐面板，这两种结构都会卡死 Chromium 合成器。因此面板与壳的贴图不对齐，但 92% 浓遮罩下接缝不可见
-- **`ZCODE_BG_OPACITY`**：图片可见度 0–100（默认 60），只控制主壳遮罩；聊天区/面板遮罩固定 ≥92% 保可读性
+- **壁纸结构**：主壳与聊天区/面板**各自**携带「渐变遮罩 + 图片」的分层背景（每个元素自身不透明），遮罩色跟随主题、深浅色自动适配——刻意不让半透明元素叠在背景图上、也不用 `background-attachment: fixed` 对齐面板，这两种结构都会卡死 Chromium 合成器。因此面板与壳的贴图不对齐，但浓遮罩下接缝不可见（默认 92%；暗色壁纸主题可下调——castle 用 82%，图本身暗、文字依旧可读）
+- **`ZCODE_BG_OPACITY`**：图片可见度 0–100（默认 60），只控制主壳遮罩；聊天区/面板遮罩固定 ≥92% 保可读性（内置主题可各自指定更薄的下限，见上）
 - 下一次不带 env 的注入即恢复配置中的主题——这就是「一次性」的含义
 
 ## 预览与截图
@@ -186,7 +186,7 @@ app 首屏未就绪或已注入过旧样式。确认 app 前台已打开后重�
 确认：路径和格式正确（png/jpg/jpeg/webp/gif，≤10MB）、`ZCODE_BG_IMAGE` 与命令在同一行（env 是一次性的，export 后另开终端才持续）。注入日志会打印 `壁纸[全局覆盖]: <路径>（…不写配置）`——没这行说明 env 没传进来；有 `⚠` 警告说明文件不可读或超限。
 
 **遮罩太重/太轻？**
-内置壁纸主题壳可见度固化 60%；自定义图可用 `ZCODE_BG_OPACITY` 0–100 调：数字越大侧栏透出的图越清晰，越小越接近纯色。聊天区/面板的遮罩固定 ≥92%（保文字可读），不受该值影响——这是刻意的：半透明面板叠在背景图上（或用 `fixed` 对齐贴图）会触发 Chromium 合成器卡死。
+内置壁纸主题壳可见度固化 60%（castle 为 75%）；自定义图可用 `ZCODE_BG_OPACITY` 0–100 调：数字越大侧栏透出的图越清晰，越小越接近纯色。聊天区/面板的遮罩默认固定 ≥92%（保文字可读），castle 主题因图本身很暗、下限放宽到 82%——这是刻意的：半透明面板叠在背景图上（或用 `fixed` 对齐贴图）会触发 Chromium 合成器卡死。
 
 **bash 报 `unbound variable`？**
 macOS 自带 bash 3.2 对中文/全角字符紧跟变量名有解析 bug，脚本内已全部用 `${VAR}` 形式规避；如果你自己改脚本，记住变量后面接中文一律加花括号。
