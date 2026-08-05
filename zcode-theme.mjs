@@ -10,8 +10,12 @@
  *
  * 主题: amber | latte | mint  —— 每个都含浅色+深色变体，跟随 app 当前外观设置
  * 前置: ZCode 以 --remote-debugging-port=9222 启动
+ *
+ * 背景图（可选）:
+ *   ZCODE_BG_IMAGE=/path/img.jpg   本地图片做全窗口背景（png/jpg/jpeg/webp/gif, ≤10MB）
+ *   ZCODE_BG_OPACITY=60            图片可见度 0–100（默认 60; 100=无遮罩, 0=纯色回退）
  */
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const PORT = process.env.ZCODE_CDP_PORT || '9222';
@@ -19,6 +23,8 @@ const MODE = process.argv[2] || 'inject';
 const THEME = (process.env.ZCODE_THEME || (MODE === 'shot' ? process.argv[4] : process.argv[3]) || 'amber').toLowerCase();
 const SHOT_FILE = MODE === 'shot' ? process.argv[3] : undefined;
 const OUTDIR = resolve(process.cwd(), 'zcode-theme-demo');
+const BG_IMAGE = process.env.ZCODE_BG_IMAGE || '';
+const BG_OPACITY = Math.min(100, Math.max(0, Number.parseInt(process.env.ZCODE_BG_OPACITY || '60', 10) || 60));
 
 // ---------- 主题调色板 ----------
 // 原理：默认主题类是 documentElement 上的 .theme-zai-dark / .theme-zai-light，
@@ -236,6 +242,47 @@ if (!PALETTES[THEME]) {
 
 const CUSTOM_CSS = `${PALETTES[THEME].dark}\n\n${PALETTES[THEME].light}`;
 
+// ---------- 背景图片（ZCODE_BG_IMAGE，可选）----------
+// 原理: 主壳背景贴图 + 聊天区/右侧面板/侧栏用主题色半透明遮罩保可读性。
+// 遮罩色跟随 var(--color-background), 深浅色主题自动适配。
+const MIME_BY_EXT = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
+
+async function buildBgCss() {
+  if (!BG_IMAGE) return '';
+  const path = BG_IMAGE.replace(/^~\//, `${process.env.HOME}/`);
+  let buf;
+  try {
+    buf = await readFile(resolve(path));
+  } catch {
+    console.warn(`⚠ ZCODE_BG_IMAGE 文件不可读: ${BG_IMAGE} —— 回退纯色模式`);
+    return '';
+  }
+  if (buf.length > 10 * 1024 * 1024) {
+    console.warn(`⚠ ZCODE_BG_IMAGE 超过 10MB（${(buf.length / 1048576).toFixed(1)}MB）—— 已跳过，换小一点的图`);
+    return '';
+  }
+  const ext = path.split('.').pop()?.toLowerCase() || '';
+  const mime = MIME_BY_EXT[ext] || 'image/png';
+  const veilAlpha = 100 - BG_OPACITY; // 遮罩不透明度（图片可见度越高遮罩越薄）
+  console.log(`背景图: ${path}（${mime}, ${(buf.length / 1024).toFixed(0)}KB, 可见度 ${BG_OPACITY}%）`);
+  return `
+/* 背景图片（ZCODE_BG_IMAGE） */
+div.flex.h-dvh.flex-col.overflow-hidden {
+  background-image: url("data:${mime};base64,${buf.toString('base64')}");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* 可读性遮罩: 聊天主区 + 右侧面板 + 侧栏 */
+#content section.rounded-xl,
+.side-pane-open-tab-shell,
+#sidebar {
+  background-color: color-mix(in oklab, var(--color-background) ${veilAlpha}%, transparent);
+}`;
+}
+
+const BG_CSS = await buildBgCss();
+
 // ---------- CDP 工具 ----------
 async function getTarget() {
   const res = await fetch(`http://127.0.0.1:${PORT}/json`);
@@ -284,7 +331,7 @@ const INJECT_JS = `(() => {
   document.getElementById(id)?.remove();
   const s = document.createElement('style');
   s.id = id;
-  s.textContent = ${JSON.stringify(CUSTOM_CSS)};
+  s.textContent = ${JSON.stringify(CUSTOM_CSS + BG_CSS)};
   (document.head || document.documentElement).appendChild(s);
   return 'injected(' + '${THEME}' + '); classes=' + document.documentElement.className;
 })()`;

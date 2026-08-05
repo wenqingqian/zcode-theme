@@ -84,6 +84,27 @@ const PALETTES = { amber: {...}, latte: {...}, mint: {...} }
 
 保存后无需重装：`zcode-theme inject <新主题>` 即时生效。改完建议先 `zcode-theme inject` 看效果再重启 app。
 
+## 背景图
+
+除了纯色主题，还可以用**本地图片做全窗口背景**（侧栏自然透出、聊天区自动加可读性遮罩）：
+
+```bash
+ZCODE_BG_IMAGE=~/Pictures/wallpaper.jpg zcode-theme                     # 启动并带背景图
+ZCODE_BG_IMAGE=~/wall.jpg ZCODE_BG_OPACITY=40 zcode-theme inject latte   # 换主题 + 调可见度
+```
+
+- **支持格式**：png / jpg / jpeg / webp / gif，单张 ≤ 10MB
+- **实现方式**：图片以 base64 data URI 内嵌进注入的 CSS（不依赖 `file://` 权限），重启 app 后由启动器重新注入，自动恢复
+- **`ZCODE_BG_OPACITY`**：图片可见度 0–100（默认 60；`100` = 无遮罩全透出，`0` = 纯色回退）
+- **持久生效**：把 export 写进 `~/.zshrc`，之后直接 `zcode-theme` 即可：
+
+```bash
+export ZCODE_BG_IMAGE="$HOME/Pictures/wallpaper.jpg"
+export ZCODE_BG_OPACITY=60
+```
+
+- 不设置 `ZCODE_BG_IMAGE` 时行为与之前完全一致（纯色主题），两种模式随意切换
+
 ## 预览与截图
 
 注入器直接运行（需要 app 已带调试端口启动，即先 `zcode-theme` 启动过）：
@@ -102,6 +123,8 @@ node zcode-theme.mjs shot  my.png   # 注入 + 单张截图
 | `ZCODE_CDP_PORT` | `9222` | CDP 调试端口（被占用时换） |
 | `ZCODE_THEME` | `amber` | 注入器默认主题 |
 | `ZCODE_THEME_INJECTOR` | 自动探测 | 指定注入器路径（启动器用） |
+| `ZCODE_BG_IMAGE` | 无 | 背景图片路径（见「背景图」小节） |
+| `ZCODE_BG_OPACITY` | `60` | 背景图可见度 0–100 |
 
 ## 工作原理
 
@@ -139,6 +162,12 @@ app 首屏未就绪或已注入过旧样式。确认 app 前台已打开后重�
 
 **终端颜色没变？**
 终端是程序化配色。amber 未定义 `--color-terminal-*`（保持原样）；latte / mint 已定义完整 16 色。
+
+**背景图没生效？**
+先确认：路径和格式正确（png/jpg/jpeg/webp/gif，≤10MB）、`ZCODE_BG_IMAGE` 已 export 或写进 `~/.zshrc` 后重开终端。注入日志会打印 `背景图: <路径>（mime, 大小, 可见度）`——没这行说明 env 没传进来；有 `⚠` 警告说明文件不可读或超限。
+
+**遮罩太重/太轻？**
+`ZCODE_BG_OPACITY` 0–100 随意调：数字越大图越透（聊天区越接近无遮罩），越小越接近纯色。
 
 **bash 报 `unbound variable`？**
 macOS 自带 bash 3.2 对中文/全角字符紧跟变量名有解析 bug，脚本内已全部用 `${VAR}` 形式规避；如果你自己改脚本，记住变量后面接中文一律加花括号。
