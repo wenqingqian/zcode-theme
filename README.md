@@ -7,8 +7,8 @@ ZCode 桌面应用（Electron）**主题注入工具**：通过 CDP 远程调试
 | 主题 | 浅色变体 | 深色变体 |
 | --- | --- | --- |
 | `amber` | Amber Paper（暖纸） | Midnight Amber |
-| `latte` | Catppuccin Latte（奶油蓝） | Midnight Amber |
-| `mint` | Mint Tea（薄荷绿） | Midnight Amber |
+| `latte` | Catppuccin Latte（奶油蓝） | Catppuccin Mocha |
+| `mint` | Mint Tea（薄荷绿） | Midnight Mint（深青黑） |
 
 > 灵感来源：ZCode 3.5.2 起有「统一外观设置」，但只支持内置主题且**没有配置文件入口**。本工具用开发者通道（CDP）实现任意配色，不动 app 本体。
 
@@ -60,6 +60,19 @@ curl -fsSL https://raw.githubusercontent.com/wenqingqian/zcode-theme/main/instal
 - **慢路径**：app 在运行但端口未开 → 自动退出 → 带 `--remote-debugging-port=9222` 重启 → 等待端口就绪 → 注入（带 45s 重试，等首屏渲染完成）。
 - **指定主题**：`zcode-theme <主题>` 与 `zcode-theme inject <主题>` 均支持；不指定时用默认 `amber`。
 
+### 浅色 / 深色变体
+
+每套主题是**双变体家族**：默认同时注入浅色 + 深色两份配色，app 里切换外观（light/dark）即时跟随，无需重新注入。
+
+想把某一份变体**强行铺满**（app 切外观颜色也不变）：
+
+```bash
+zcode-theme inject latte --dark    # light 外观下也显示 Catppuccin Mocha 深色
+zcode-theme latte --light          # 启动并强制浅色变体（dark 外观下也是 Latte）
+```
+
+`--light` / `--dark` 加在任意 `zcode-theme` / `inject` 命令末尾均可；也可用环境变量 `ZCODE_VARIANT=dark|light|auto`（默认 `auto` = 双变体跟随）。
+
 ## 自定义配色
 
 主题调色板在注入器文件顶部（安装位置 `~/.local/bin/zcode-theme.mjs`）：
@@ -79,14 +92,14 @@ const PALETTES = { amber: {...}, latte: {...}, mint: {...} }
 --color-brand/accent    品牌色 / 强调色
 --color-foreground      正文
 --color-border          边框
---color-terminal-*      终端配色（mint/latte 已配，amber 未配）
+--color-terminal-*      终端配色（三套主题均已配完整 16 色）
 ```
 
 保存后无需重装：`zcode-theme inject <新主题>` 即时生效。改完建议先 `zcode-theme inject` 看效果再重启 app。
 
 ## 背景图
 
-除了纯色主题，还可以用**本地图片做全窗口背景**（侧栏等透明区域自然透出压暗后的图片，聊天区/面板保持不透明、文字零干扰）：
+除了纯色主题，还可以用**本地图片做全窗口背景（壁纸模式）**：侧栏等透明区域自然透出图片，聊天区/面板也贴同一张图、但罩一层 ≥92% 的浓遮罩——图片只隐约可见，文字保持清晰可读，窗口圆角边缘也全覆盖：
 
 ```bash
 ZCODE_BG_IMAGE=~/Pictures/wallpaper.jpg zcode-theme                     # 启动并带背景图
@@ -95,8 +108,9 @@ ZCODE_BG_IMAGE=~/wall.jpg ZCODE_BG_OPACITY=40 zcode-theme inject latte   # 换�
 
 - **支持格式**：png / jpg / jpeg / webp / gif，单张 ≤ 10MB
 - **实现方式**：图片以 base64 data URI 内嵌进注入的 CSS（不依赖 `file://` 权限），重启 app 后由启动器重新注入，自动恢复
-- **压图方式**：图片与一层主题色渐变遮罩作为**分层背景贴在同一元素**上（遮罩色跟随主题，深浅色自动适配）——刻意不在子元素上叠半透明背景，因为那会卡死 Chromium 合成器（实测截图无响应、UI 渲染异常）
-- **`ZCODE_BG_OPACITY`**：图片可见度 0–100（默认 60；`100` = 无遮罩全透出，`0` = 纯色回退）
+- **壁纸结构**：主壳与聊天区/面板**各自**携带「渐变遮罩 + 图片」的分层背景（每个元素自身不透明），遮罩色跟随主题、深浅色自动适配——刻意不让半透明元素叠在背景图上、也不用 `background-attachment: fixed` 对齐面板，这两种结构都会卡死 Chromium 合成器（实测截图无响应、UI 渲染异常）。因此面板与壳的贴图不对齐，但 92% 浓遮罩下接缝不可见
+- **`ZCODE_BG_OPACITY`**：图片可见度 0–100（默认 60），只控制主壳遮罩；聊天区/面板遮罩固定 ≥92% 保可读性。`100` = 侧栏无遮罩全透出，`0` = 纯色回退
+- **选图建议**：浅色主题配**深色 / 低饱和**的图（浓遮罩下不泛白、侧栏文字仍清晰）；深色主题随意
 - **持久生效**：把 export 写进 `~/.zshrc`，之后直接 `zcode-theme` 即可：
 
 ```bash
@@ -123,6 +137,7 @@ node zcode-theme.mjs shot  my.png   # 注入 + 单张截图
 | --- | --- | --- |
 | `ZCODE_CDP_PORT` | `9222` | CDP 调试端口（被占用时换） |
 | `ZCODE_THEME` | `amber` | 注入器默认主题 |
+| `ZCODE_VARIANT` | `auto` | 变体选择：`auto` 双变体跟随 / `dark` / `light` 强制 |
 | `ZCODE_THEME_INJECTOR` | 自动探测 | 指定注入器路径（启动器用） |
 | `ZCODE_BG_IMAGE` | 无 | 背景图片路径（见「背景图」小节） |
 | `ZCODE_BG_OPACITY` | `60` | 背景图可见度 0–100 |
@@ -139,7 +154,6 @@ node zcode-theme.mjs shot  my.png   # 注入 + 单张截图
 - **标题栏**走独立 IPC（nativeTheme），只认 light/dark/system，CSS 覆盖不到 macOS 标题栏。
 - **Dock 直接点图标启动**不会自动注入（没带调试端口）——自动换肤请用 `zcode-theme`。
 - 注入期间 9222 端口对 localhost 保持监听（同一台机器的进程可连；在意的话用 `zcode-theme off` 重启一次关掉）。
-- 深色变体目前三套主题共用 Midnight Amber（amber 的深色），想区分可在 `PALETTES` 里给 latte/mint 配独立深色。
 - 不修改 app 安装目录 → **app 更新不影响本工具**（注入器是独立文件）。
 
 ## 卸载
@@ -162,13 +176,13 @@ app 首屏未就绪或已注入过旧样式。确认 app 前台已打开后重�
 先确认当前外观设置：主题类名需是 `theme-zai-dark` / `theme-zai-light`（设置 → 外观 → 界面主题选 ZAI 系列）。若用的第三方主题类，需把选择器改成对应类名。
 
 **终端颜色没变？**
-终端是程序化配色。amber 未定义 `--color-terminal-*`（保持原样）；latte / mint 已定义完整 16 色。
+终端是程序化配色，三套主题的深浅变体都已定义完整 16 色；若你的终端区域来自其他变量，可在调色板里自行增补。
 
 **背景图没生效？**
 先确认：路径和格式正确（png/jpg/jpeg/webp/gif，≤10MB）、`ZCODE_BG_IMAGE` 已 export 或写进 `~/.zshrc` 后重开终端。注入日志会打印 `背景图: <路径>（mime, 大小, 可见度）`——没这行说明 env 没传进来；有 `⚠` 警告说明文件不可读或超限。
 
 **遮罩太重/太轻？**
-`ZCODE_BG_OPACITY` 0–100 随意调：数字越大图越透，越小越接近纯色。注意图片只在侧栏等透明区域透出，聊天区/面板始终不透明（这是刻意的：半透明面板叠在背景图上会触发 Chromium 合成器卡死）。
+`ZCODE_BG_OPACITY` 0–100 随意调：数字越大侧栏透出的图越清晰，越小越接近纯色。聊天区/面板的遮罩固定 ≥92%（保文字可读），不受该值影响——这是刻意的：半透明面板叠在背景图上（或用 `fixed` 对齐贴图）会触发 Chromium 合成器卡死。
 
 **bash 报 `unbound variable`？**
 macOS 自带 bash 3.2 对中文/全角字符紧跟变量名有解析 bug，脚本内已全部用 `${VAR}` 形式规避；如果你自己改脚本，记住变量后面接中文一律加花括号。

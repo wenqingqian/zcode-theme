@@ -7,6 +7,8 @@
 #   zcode-theme inject      不重启, 仅对运行中的实例注入主题
 #   zcode-theme inject <主题>  同上, 指定主题, 如 zcode-theme inject latte
 #   zcode-theme off         正常启动（不带调试端口, 不注入）
+#   以上任意形式可追加 --light / --dark 强制变体（默认双变体跟随 app 外观）:
+#   zcode-theme latte --dark        zcode-theme inject latte --light
 #
 # 说明:
 #   - 单实例锁会吞掉启动参数, 需要带端口重启时必须先完全退出
@@ -35,14 +37,23 @@ port_up() { curl -sf "http://127.0.0.1:${PORT}/json" >/dev/null 2>&1; }
 inject() {
   local theme="${1:-}"
   if [ -n "$theme" ]; then
-    node "$INJECTOR" inject "$theme" || exit 1
+    node "$INJECTOR" inject "$theme" ${VARIANT_ARG:+--${VARIANT_ARG}} || exit 1
   else
-    node "$INJECTOR" inject || exit 1
+    node "$INJECTOR" inject ${VARIANT_ARG:+--${VARIANT_ARG}} || exit 1
   fi
 }
 
 cmd="${1:-on}"
 theme="${2:-}"
+
+# 变体 flag: --light / --dark 可出现在任意位置（等价 ZCODE_VARIANT=light|dark）
+VARIANT_ARG=""
+for a in "$@"; do
+  case "$a" in
+    --light) VARIANT_ARG="light" ;;
+    --dark)  VARIANT_ARG="dark" ;;
+  esac
+done
 
 if [ "$cmd" = "off" ]; then
   open "$APP"
@@ -50,11 +61,14 @@ if [ "$cmd" = "off" ]; then
   exit 0
 fi
 
-# 兼容: zcode-theme latte 这类直接给主题的写法
-if [ "$cmd" != "inject" ] && [ -n "$cmd" ] && [ "$cmd" != "on" ]; then
+# 兼容: zcode-theme latte 这类直接给主题的写法（--light/--dark 不算主题）
+if [ "$cmd" != "inject" ] && [ "$cmd" != "on" ] && [ "$cmd" != "off" ] && [ "${cmd#--}" = "$cmd" ]; then
   theme="$cmd"
   cmd="on"
 fi
+# --light/--dark 单独出现时不当作主题/命令
+[ "$cmd" = "--light" ] || [ "$cmd" = "--dark" ] && cmd="on"
+[ "${theme#--}" != "$theme" ] && theme="${3:-}"
 
 # 快路径: app 在跑、端口已开 → 只注入
 if running && port_up; then
