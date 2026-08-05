@@ -6,3 +6,6 @@ zcode-theme-demo/
 
 # macOS
 .DS_Store
+
+# ZCode 本机会话产物
+.zcode/
