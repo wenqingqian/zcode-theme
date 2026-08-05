@@ -13,7 +13,7 @@
  *
  * 背景图（可选）:
  *   ZCODE_BG_IMAGE=/path/img.jpg   本地图片做全窗口背景（png/jpg/jpeg/webp/gif, ≤10MB）
- *   ZCODE_BG_OPACITY=60            图片可见度 0–100（默认 60; 100=无遮罩, 0=纯色回退）
+ *   ZCODE_BG_OPACITY=60            图片可见度 0–100（默认 60; 100=无遮罩, 0=纯色回退）—— 图片仅在侧栏等透明区域透出
  */
 import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -24,7 +24,8 @@ const THEME = (process.env.ZCODE_THEME || (MODE === 'shot' ? process.argv[4] : p
 const SHOT_FILE = MODE === 'shot' ? process.argv[3] : undefined;
 const OUTDIR = resolve(process.cwd(), 'zcode-theme-demo');
 const BG_IMAGE = process.env.ZCODE_BG_IMAGE || '';
-const BG_OPACITY = Math.min(100, Math.max(0, Number.parseInt(process.env.ZCODE_BG_OPACITY || '60', 10) || 60));
+const _opacity = Number.parseInt(process.env.ZCODE_BG_OPACITY ?? '60', 10);
+const BG_OPACITY = Number.isNaN(_opacity) ? 60 : Math.min(100, Math.max(0, _opacity));
 
 // ---------- 主题调色板 ----------
 // 原理：默认主题类是 documentElement 上的 .theme-zai-dark / .theme-zai-light，
@@ -243,8 +244,11 @@ if (!PALETTES[THEME]) {
 const CUSTOM_CSS = `${PALETTES[THEME].dark}\n\n${PALETTES[THEME].light}`;
 
 // ---------- 背景图片（ZCODE_BG_IMAGE，可选）----------
-// 原理: 主壳背景贴图 + 聊天区/右侧面板/侧栏用主题色半透明遮罩保可读性。
+// 原理: 图片 + 可读性遮罩（线性渐变）作为**分层背景贴在同一个元素**（主壳）上,
+// 侧栏等天然透明的区域自动透出压暗后的图片; 聊天区/右侧面板保持不透明, 文字完全不受干扰。
 // 遮罩色跟随 var(--color-background), 深浅色主题自动适配。
+// ⚠ 不要在子元素上叠半透明背景来"透图": 实测半透明子元素叠加在背景图元素上会
+//    卡死 Chromium 合成器（CDP 截图无响应、UI 渲染异常），与 color-mix 无关。
 const MIME_BY_EXT = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
 
 async function buildBgCss() {
@@ -263,21 +267,14 @@ async function buildBgCss() {
   }
   const ext = path.split('.').pop()?.toLowerCase() || '';
   const mime = MIME_BY_EXT[ext] || 'image/png';
+  if (!MIME_BY_EXT[ext]) console.warn(`⚠ ZCODE_BG_IMAGE 扩展名无法识别（${ext || '无'}）—— 按 image/png 处理，图片可能无法解码`);
   const veilAlpha = 100 - BG_OPACITY; // 遮罩不透明度（图片可见度越高遮罩越薄）
   console.log(`背景图: ${path}（${mime}, ${(buf.length / 1024).toFixed(0)}KB, 可见度 ${BG_OPACITY}%）`);
+  const veil = `color-mix(in oklab, var(--color-background) ${veilAlpha}%, transparent)`;
   return `
-/* 背景图片（ZCODE_BG_IMAGE） */
+/* 背景图片（ZCODE_BG_IMAGE）: 渐变遮罩与图片同为分层背景，单元素一次合成 */
 div.flex.h-dvh.flex-col.overflow-hidden {
-  background-image: url("data:${mime};base64,${buf.toString('base64')}");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-/* 可读性遮罩: 聊天主区 + 右侧面板 + 侧栏 */
-#content section.rounded-xl,
-.side-pane-open-tab-shell,
-#sidebar {
-  background-color: color-mix(in oklab, var(--color-background) ${veilAlpha}%, transparent);
+  background: linear-gradient(${veil} 0 100%), url("data:${mime};base64,${buf.toString('base64')}") center / cover no-repeat var(--color-background);
 }`;
 }
 
