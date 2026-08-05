@@ -8,9 +8,12 @@
 #
 # 安装内容 (~/.local/bin/ 或自定义目录):
 #   zcode-theme      启动器命令 (zcode-theme / inject / off)
-#   zcode-theme.mjs  Node 注入器 (内置三套主题: amber / latte / mint)
+#   zcode-theme.mjs  Node 注入器 (内置五套主题: amber / latte / mint / sea / mist)
+#   wallpapers/      内置壁纸主题图片 (sea.jpg 暗蓝海面 / mist.jpg 雾山)
 #
 # 卸载: rm -f "$ZCODE_THEME_DIR/zcode-theme" "$ZCODE_THEME_DIR/zcode-theme.mjs"
+#       rm -rf "$ZCODE_THEME_DIR/wallpapers"
+#       配置文件在 ~/.config/zcode-theme/config.json（不需要可一并删除）
 set -u
 
 # 网络安装时通过此地址拉取文件; 本地安装时优先复制脚本同目录的文件
@@ -49,6 +52,7 @@ fetch() {
   else
     src="${REPO_RAW}/$name"         # 管道安装: 从 GitHub 下载
   fi
+  mkdir -p "$INSTALL_DIR/$(dirname "$name")"
   if [ -f "$src" ]; then
     cp "$src" "$INSTALL_DIR/$name"
   else
@@ -57,13 +61,15 @@ fetch() {
       exit 1
     }
   fi
-  chmod +x "$INSTALL_DIR/$name"
   echo "  ✓ ${INSTALL_DIR}/${name}"
 }
 
 echo "== 安装到 ${INSTALL_DIR} =="
 fetch zcode-theme
 fetch zcode-theme.mjs
+chmod +x "$INSTALL_DIR/zcode-theme" "$INSTALL_DIR/zcode-theme.mjs"
+fetch wallpapers/sea.jpg
+fetch wallpapers/mist.jpg
 
 # ---------- PATH 检查 ----------
 case ":$PATH:" in
@@ -74,10 +80,11 @@ esac
 # ---------- 完成提示 ----------
 echo ""
 echo "== 安装完成 =="
-echo "启动并自动换肤:          zcode-theme"
-echo "指定主题启动:            zcode-theme mint"
+echo "启动并按配置换肤:        zcode-theme            （首次默认 amber，之后记住你的选择）"
+echo "指定主题:                zcode-theme sea        （两个外观槽位都设为该主题）"
+echo "只设浅色/深色外观槽位:   zcode-theme sea --light / --dark"
 echo "注入运行中的实例:        zcode-theme inject latte"
 echo "普通模式启动(不注入):    zcode-theme off"
 echo ""
-echo "可用主题: amber（暖琥珀）/ latte（奶油蓝）/ mint（薄荷绿），均含深浅变体"
-echo "自定义配色: 编辑 ${INSTALL_DIR}/zcode-theme.mjs 顶部主题常量即可"
+echo "可用主题: amber（暖琥珀）/ latte（奶油蓝）/ mint（薄荷绿）/ sea（暗蓝海面壁纸）/ mist（雾山壁纸）"
+echo "  均含深浅变体，跟随 app 外观自动切换；选择保存在 ~/.config/zcode-theme/config.json"

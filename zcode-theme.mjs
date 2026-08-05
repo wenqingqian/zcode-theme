@@ -1,48 +1,65 @@
 #!/usr/bin/env node
 /**
- * ZCode 主题注入脚本（CDP 远程调试，hack 路线 2）
+ * ZCode 主题注入脚本（CDP 远程调试）
  *
  * 用法：
  *   node zcode-theme.mjs inject [主题] [--light|--dark]      # 注入主题（带重试，等首屏就绪）
- *   node zcode-theme.mjs demo  [主题] [--light|--dark]       # 注入 + before/after 对比截图
- *   node zcode-theme.mjs shot  <png> [主题] [--light|--dark] # 注入 + 单张截图
- *   也可用环境变量 ZCODE_THEME 指定主题
+ *   node zcode-theme.mjs demo  [主题] [--light|--dark]       # 注入 + before/after 对比截图（试用, 不写配置）
+ *   node zcode-theme.mjs shot  <png> [主题] [--light|--dark] # 注入 + 单张截图（试用, 不写配置）
  *
- * 主题: amber | latte | mint  —— 每个都含浅色+深色变体。
- *   默认双变体同时注入，跟随 app 外观切换；
- *   --light / --dark（或 ZCODE_VARIANT=light|dark|auto）强制只用指定变体（强行覆盖，app 切换不变色）
- *   优先级: 显式 flag（--light / --dark）> ZCODE_VARIANT 环境变量 > auto 默认
+ * 内置主题: amber | latte | mint | sea | mist —— 每个都含浅色+深色变体，注入后跟随 app 外观切换。
+ *   amber/latte/mint 为纯色主题；sea（暗蓝海面）/mist（雾山）为壁纸主题（图片内置在 wallpapers/，
+ *   与纯色主题同一接口按名字注入，无需关心是图还是色）。
+ *
+ * 外观槽位模型：配置分 light / dark 两个槽位（app 浅色/深色外观时各自生效），
+ * 持久化在 ~/.config/zcode-theme/config.json（$XDG_CONFIG_HOME 优先）：
+ *   inject <主题>            两个槽位都设为该主题并保存（两个外观同色）
+ *   inject <主题> --light    只设 light 槽（dark 槽保持原配置）并保存；--dark 镜像
+ *   inject（不带主题）        按配置复用 —— 裸 `zcode-theme` 启动器走的就是这条路
+ * 主题名优先级: 位置参数 > ZCODE_THEME 环境变量（一次性, 不写配置）> 配置文件
+ * 槽位 flag 优先级: --light/--dark > ZCODE_VARIANT 环境变量（一次性）> auto（双槽）
+ *
  * 前置: ZCode 以 --remote-debugging-port=9222 启动
  *
- * 背景图（可选）:
- *   ZCODE_BG_IMAGE=/path/img.jpg   本地图片做全窗口壁纸（png/jpg/jpeg/webp/gif, ≤10MB）
- *   ZCODE_BG_OPACITY=60            壳上图片可见度 0–100（默认 60; 100=无遮罩, 0=纯色回退）
- *                                  聊天区/面板始终带 ≥92% 可读性遮罩，文字零干扰
+ * 高级覆盖（一次性, 不写配置）:
+ *   ZCODE_BG_IMAGE=/path/img.jpg   用本地图片覆盖两个槽位的壁纸（png/jpg/jpeg/webp/gif, ≤10MB）
+ *   ZCODE_BG_OPACITY=60            覆盖时壳上图片可见度 0–100（默认 60; 面板始终 ≥92% 可读性遮罩）
  */
 import { writeFile, mkdir, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.ZCODE_CDP_PORT || '9222';
 const ARGS = process.argv.slice(2);
 const POSITIONAL = ARGS.filter((a) => !a.startsWith('--'));
-const FLAG_VARIANT = ARGS.find((a) => a === '--light' || a === '--dark')?.slice(2);
+const FLAG_SLOT = ARGS.find((a) => a === '--light' || a === '--dark')?.slice(2);
+for (const a of ARGS) {
+  if (a.startsWith('--') && a !== '--light' && a !== '--dark') console.warn(`⚠ 未识别的参数: ${a} —— 已忽略`);
+}
 const MODE = POSITIONAL[0] || 'inject';
-const THEME = (process.env.ZCODE_THEME || (MODE === 'shot' ? POSITIONAL[2] : POSITIONAL[1]) || 'amber').toLowerCase();
+if (!['inject', 'demo', 'shot'].includes(MODE)) {
+  console.error('未知模式:', MODE, '—— 可用: inject | demo | shot');
+  process.exit(1);
+}
+const THEME_ARG = (MODE === 'shot' ? POSITIONAL[2] : POSITIONAL[1])?.toLowerCase() || '';
 const SHOT_FILE = MODE === 'shot' ? POSITIONAL[1] : undefined;
 const OUTDIR = resolve(process.cwd(), 'zcode-theme-demo');
 const BG_IMAGE = process.env.ZCODE_BG_IMAGE || '';
 const _opacity = Number.parseInt(process.env.ZCODE_BG_OPACITY ?? '60', 10);
 const BG_OPACITY = Number.isNaN(_opacity) ? 60 : Math.min(100, Math.max(0, _opacity));
-const VARIANT = (FLAG_VARIANT || process.env.ZCODE_VARIANT || 'auto').toLowerCase();
+const SLOT = (FLAG_SLOT || process.env.ZCODE_VARIANT || 'auto').toLowerCase();
 
-if (!['auto', 'light', 'dark'].includes(VARIANT)) {
-  console.error('未知变体:', VARIANT, '—— 可用: auto | light | dark（或 --light / --dark）');
+if (!['auto', 'light', 'dark'].includes(SLOT)) {
+  console.error('未知槽位:', SLOT, '—— 可用: light | dark（或 --light / --dark）; 缺省为双槽');
   process.exit(1);
 }
 
 // ---------- 主题调色板 ----------
 // 原理：默认主题类是 documentElement 上的 .theme-zai-dark / .theme-zai-light，
 // 保持类不动，注入 <style> 覆盖它定义的 CSS 变量（变量值会继承到全 UI）。
+// 深色调色板写在 .theme-zai-dark 选择器下、浅色写在 .theme-zai-light 下 ——
+// 槽位组装时直接按外观取用对应调色板即可。
 
 const DARK_AMBER = `
 /* 深色变体：Midnight Amber */
@@ -385,98 +402,179 @@ const DARK_MINT = `
 html.theme-zai-dark, html.dark { --shiki-color-text:#ddeae3; --shiki-color-background:transparent; } /* 代码高亮 */
 `;
 
-const PALETTES = {
+// ---------- 内置主题注册表 ----------
+// 纯色主题与壁纸主题同一结构：light/dark 两个外观变体 + 可选 image（wallpapers/ 下的内置图）。
+// 壁纸主题按名字注入即可，使用者无需关心是图还是色。
+const THEMES = {
   amber: { dark: DARK_AMBER, light: AMBER_LIGHT },
   latte: { dark: DARK_MOCHA, light: LATTE_LIGHT },
-  mint: { dark: DARK_MINT, light: MINT_LIGHT },
+  mint:  { dark: DARK_MINT,  light: MINT_LIGHT  },
+  sea:   { dark: DARK_MOCHA, light: LATTE_LIGHT, image: 'sea.jpg'  },  // 暗蓝海面
+  mist:  { dark: DARK_MINT,  light: MINT_LIGHT,  image: 'mist.jpg' },  // 雾山
 };
 
-if (!PALETTES[THEME]) {
-  console.error('未知主题:', THEME, '—— 可用:', Object.keys(PALETTES).join(', '));
-  process.exit(1);
-}
+// ---------- 外观槽位配置（~/.config/zcode-theme/config.json）----------
+// 配置只存两个槽位的内置主题名: {"light":"sea","dark":"mint"}
+const CONFIG_DIR = resolve(process.env.XDG_CONFIG_HOME || `${process.env.HOME}/.config`, 'zcode-theme');
+const CONFIG_FILE = resolve(CONFIG_DIR, 'config.json');
+const DEFAULT_SLOTS = { light: 'amber', dark: 'amber' };
 
-// 双变体默认同时注入（跟随 app 外观切换）；
-// --light/--dark 强制时，把选定变体的变量同时写到两个外观类下（app 切换不变色）。
-function buildCustomCss() {
-  const p = PALETTES[THEME];
-  if (VARIANT === 'auto') return `${p.dark}\n\n${p.light}`;
-  // 选择器改写依赖模板中的字节级精确匹配；任何一次 replace 落空都意味着强制模式
-  // 会静默退化为“只在自身类下注入”，这里必须大声失败而不是默默降级。
-  const assertRewritten = (src, find, expanded) => {
-    const out = src.replace(find, expanded);
-    if (out === src) {
-      console.error(`✗ 强制变体(${VARIANT})选择器改写失败: 调色板模板 ${THEME} 中未找到 ${JSON.stringify(find)} —— 模板可能被改动, 强制模式将失效`);
-      process.exit(1);
-    }
-    return out;
-  };
-  if (VARIANT === 'dark') {
-    return assertRewritten(
-      assertRewritten(p.dark, '.theme-zai-dark, .dark {', '.theme-zai-dark, .dark, .theme-zai-light {'),
-      'html.theme-zai-dark, html.dark {',
-      'html.theme-zai-dark, html.dark, html.theme-zai-light {',
-    );
+function validateThemeName(name, source) {
+  if (!Object.hasOwn(THEMES, name)) {
+    console.error(`未知主题: ${name}（来源: ${source}）—— 可用:`, Object.keys(THEMES).join(', '));
+    process.exit(1);
   }
-  return assertRewritten(
-    assertRewritten(p.light, '.theme-zai-light {', '.theme-zai-light, .theme-zai-dark, .dark {'),
-    'html.theme-zai-light {',
-    'html.theme-zai-light, html.theme-zai-dark, html.dark {',
-  );
+  return name;
 }
 
-const CUSTOM_CSS = buildCustomCss();
+async function readSlots() {
+  let raw;
+  try {
+    raw = await readFile(CONFIG_FILE, 'utf8');
+  } catch {
+    return { ...DEFAULT_SLOTS };   // 首次使用: 无配置文件
+  }
+  let cfg;
+  try {
+    cfg = JSON.parse(raw);
+  } catch {
+    console.warn(`⚠ 配置文件无法解析: ${CONFIG_FILE} —— 回退默认（light=${DEFAULT_SLOTS.light}, dark=${DEFAULT_SLOTS.dark}）`);
+    return { ...DEFAULT_SLOTS };
+  }
+  const slots = { ...DEFAULT_SLOTS };
+  for (const k of ['light', 'dark']) {
+    if (typeof cfg?.[k] === 'string' && Object.hasOwn(THEMES, cfg[k])) slots[k] = cfg[k];
+    else if (cfg?.[k] != null) console.warn(`⚠ 配置中 ${k} 槽位的主题名无效: ${JSON.stringify(cfg[k])} —— 回退 ${DEFAULT_SLOTS[k]}`);
+  }
+  return slots;
+}
 
-// ---------- 背景图片（ZCODE_BG_IMAGE，可选）----------
+async function saveSlots(slots) {
+  await mkdir(CONFIG_DIR, { recursive: true });
+  await writeFile(CONFIG_FILE, `${JSON.stringify(slots, null, 2)}\n`);
+}
+
+// ---------- 槽位解析：位置参数 > ZCODE_THEME（一次性） > 配置文件 ----------
+const slots = await readSlots();
+const explicit = THEME_ARG
+  ? validateThemeName(THEME_ARG, '命令行参数')
+  : process.env.ZCODE_THEME
+    ? validateThemeName(process.env.ZCODE_THEME.toLowerCase(), 'ZCODE_THEME 环境变量')
+    : null;
+if (explicit) {
+  if (SLOT === 'auto') { slots.light = explicit; slots.dark = explicit; }
+  else slots[SLOT] = explicit;
+  // 只有"位置参数显式指定 + inject 模式"才持久化; demo/shot 与 ZCODE_THEME 都是一次性试用
+  if (MODE === 'inject' && THEME_ARG) {
+    try {
+      await saveSlots(slots);
+      console.log(`配置已保存: ${CONFIG_FILE}（light=${slots.light}, dark=${slots.dark}）`);
+    } catch (e) {
+      console.warn(`⚠ 配置保存失败（${e.code ?? e}）—— 本次仍注入，但选择不会被记住`);
+    }
+  } else {
+    console.log(`试用模式（${MODE === 'inject' ? 'ZCODE_THEME' : MODE}）: 不写配置文件`);
+  }
+}
+
+// ---------- 壁纸（内置主题的图片 / ZCODE_BG_IMAGE 一次性覆盖）----------
 // 壁纸模式: 主壳 + 聊天区/右侧面板各自携带**同一图片的分层背景**
 // （渐变遮罩 + 图片在同一元素内合成, 元素整体不透明）。侧栏等透明区域透出壳上的图片。
-// 遮罩色跟随 var(--color-background), 深浅色主题自动适配。
-// 壳遮罩 = 100 - ZCODE_BG_OPACITY; 面板遮罩 ≥92%（跟随壳遮罩上浮, 不会更薄; 保文字可读,
-// 且浓到跨元素贴图接缝不可见 —— 面板不能用 background-attachment:fixed 与壳对齐, 见下）。
+// 遮罩色跟随 var(--color-background), 深浅色外观自动适配。
+// 规则按外观类前缀作用域（html.theme-zai-light/dark …）: 槽位没有壁纸时, 切到该外观壁纸自然消失。
+// 内置壁纸主题遮罩固化: 壳 40%（图片可见度 60）; 面板 ≥92%（跟随壳遮罩上浮, 不会更薄;
+// 保文字可读, 且浓到跨元素贴图接缝不可见 —— 面板不能用 background-attachment:fixed 与壳对齐, 见下）。
 // ⚠ 两种卡死 Chromium 合成器的结构（CDP 截图无响应、UI 渲染异常, 均实测）:
 //    1) 半透明子元素叠加在背景图元素上（与 color-mix 无关）——壁纸模式的每个
 //       贴图元素自身都是不透明的（图片层垫底），因此安全;
 //    2) 内层面板（#content section.rounded-xl）上使用 background-attachment:fixed
 //       ——因此一律不用 fixed（壳占满视口不滚动, fixed 对它本无意义）。
 const MIME_BY_EXT = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
+const SHELL_OPACITY = 60;    // 内置壁纸主题: 壳上图片可见度（遮罩 40%）
+const PANEL_MIN_VEIL = 92;   // 面板遮罩下限（保文字可读 + 接缝不可见）
 
-async function buildBgCss() {
-  if (!BG_IMAGE) return '';
-  const path = BG_IMAGE.replace(/^~\//, `${process.env.HOME}/`);
+async function loadImageUrl(path, label) {
   let buf;
   try {
-    buf = await readFile(resolve(path));
+    buf = await readFile(path);
   } catch {
-    console.warn(`⚠ ZCODE_BG_IMAGE 文件不可读: ${BG_IMAGE} —— 回退纯色模式`);
-    return '';
+    console.warn(`⚠ ${label} 图片不可读: ${path} —— 壁纸跳过（主题调色板不受影响）`);
+    return null;
   }
   if (buf.length > 10 * 1024 * 1024) {
-    console.warn(`⚠ ZCODE_BG_IMAGE 超过 10MB（${(buf.length / 1048576).toFixed(1)}MB）—— 已跳过，换小一点的图`);
-    return '';
+    console.warn(`⚠ ${label} 图片超过 10MB（${(buf.length / 1048576).toFixed(1)}MB）—— 已跳过，换小一点的图`);
+    return null;
   }
   const ext = path.split('.').pop()?.toLowerCase() || '';
-  const mime = MIME_BY_EXT[ext] || 'image/png';
-  if (!MIME_BY_EXT[ext]) console.warn(`⚠ ZCODE_BG_IMAGE 扩展名无法识别（${ext || '无'}）—— 按 image/png 处理，图片可能无法解码`);
-  const shellAlpha = 100 - BG_OPACITY;                 // 壳遮罩不透明度（图片可见度越高遮罩越薄）
-  const panelAlpha = Math.max(shellAlpha, 92);         // 面板遮罩 ≥92%（跟随壳遮罩上浮, 不会更薄），保文字可读、接缝不可见
-  const shellVeil = `color-mix(in oklab, var(--color-background) ${shellAlpha}%, transparent)`;
-  const panelVeil = `color-mix(in oklab, var(--color-background) ${panelAlpha}%, transparent)`;
-  const img = `url("data:${mime};base64,${buf.toString('base64')}")`;
-  console.log(`背景图: ${path}（${mime}, ${(buf.length / 1024).toFixed(0)}KB, 可见度 ${BG_OPACITY}%, 面板遮罩 ${panelAlpha}%）`);
-  return `
-/* 背景图片（ZCODE_BG_IMAGE）壁纸模式: 壳与面板各自分层贴图（不用 fixed, 见文件头注释） */
-div.flex.h-dvh.flex-col.overflow-hidden {
-  background: linear-gradient(${shellVeil} 0 100%), ${img} center / cover no-repeat var(--color-background);
-}
-#content section.rounded-xl,
-.side-pane-open-tab-shell {
-  background: linear-gradient(${panelVeil} 0 100%), ${img} center / cover no-repeat var(--color-background);
-}
-/* 防御: 壳之下的祖先必须保持透明，否则挡住壳上的图片（含圆角边缘） */
-html, body, #root { background: transparent !important; }`;
+  const mime = MIME_BY_EXT[ext];
+  if (!mime) {
+    console.warn(`⚠ ${label} 扩展名无法识别（${ext || '无'}）—— 已跳过（支持: ${Object.keys(MIME_BY_EXT).join('/')}）`);
+    return null;
+  }
+  return { url: `url("data:${mime};base64,${buf.toString('base64')}")`, sizeKB: (buf.length / 1024).toFixed(0) };
 }
 
-const BG_CSS = await buildBgCss();
+// classes: 作用域外观类列表（['theme-zai-light'] / ['theme-zai-dark'] / 两者）。
+// 图片 data URI 只在一处定义为 CSS 变量 --zcode-wallpaper（var() 在解析前做原始令牌替换,
+// 可安全用于 background 简写）, 各贴图规则引用变量 —— 同一图片在两个槽位间只嵌入一次。
+function wallpaperCss(img, classes, shellAlpha, panelAlpha) {
+  const shellVeil = `color-mix(in oklab, var(--color-background) ${shellAlpha}%, transparent)`;
+  const panelVeil = `color-mix(in oklab, var(--color-background) ${panelAlpha}%, transparent)`;
+  const htmlSel = classes.map((c) => `html.${c}`).join(', ');
+  const layer = `var(--zcode-wallpaper) center / cover no-repeat var(--color-background)`;
+  const rules = classes.map((c) => {
+    const s = `html.${c} `;  // 后代作用域前缀
+    return `
+${s}div.flex.h-dvh.flex-col.overflow-hidden {
+  background: linear-gradient(${shellVeil} 0 100%), ${layer};
+}
+${s}#content section.rounded-xl,
+${s}.side-pane-open-tab-shell {
+  background: linear-gradient(${panelVeil} 0 100%), ${layer};
+}
+/* 防御: 壳之下的祖先必须保持透明，否则挡住壳上的图片（含圆角边缘） */
+html.${c}, ${s}body, ${s}#root { background: transparent !important; }`;
+  }).join('\n');
+  return `
+/* 壁纸(${classes.join(' + ')}): 壳与面板各自分层贴图（不用 fixed, 见上方注释） */
+${htmlSel} { --zcode-wallpaper: ${img}; }${rules}`;
+}
+
+async function buildCss() {
+  const parts = [THEMES[slots.dark].dark, THEMES[slots.light].light];
+  // 内置壁纸主题: 按图片把槽位分组 —— 两个槽位用同一张图时只嵌入一次
+  const byImage = new Map();   // image 文件名 -> [槽位名...]
+  for (const slotName of ['light', 'dark']) {
+    const t = THEMES[slots[slotName]];
+    if (t.image) {
+      const group = byImage.get(t.image) || [];
+      group.push(slotName);
+      byImage.set(t.image, group);
+    }
+  }
+  for (const [image, slotNames] of byImage) {
+    const img = await loadImageUrl(resolve(SCRIPT_DIR, 'wallpapers', image), '内置壁纸');
+    if (!img) continue;
+    const shellAlpha = 100 - SHELL_OPACITY;
+    const panelAlpha = Math.max(shellAlpha, PANEL_MIN_VEIL);
+    console.log(`壁纸[${slotNames.join('+')} 槽]: wallpapers/${image}（${img.sizeKB}KB, 壳可见度 ${SHELL_OPACITY}%, 面板遮罩 ${panelAlpha}%）`);
+    parts.push(wallpaperCss(img.url, slotNames.map((n) => `theme-zai-${n}`), shellAlpha, panelAlpha));
+  }
+  // ZCODE_BG_IMAGE: 一次性全局覆盖（两个外观类都写, 置于内置壁纸之后 → 同等优先级靠后生效）, 不写配置
+  if (BG_IMAGE) {
+    const path = resolve(BG_IMAGE.replace(/^~\//, `${process.env.HOME}/`));
+    const img = await loadImageUrl(path, 'ZCODE_BG_IMAGE');
+    if (img) {
+      const shellAlpha = 100 - BG_OPACITY;
+      const panelAlpha = Math.max(shellAlpha, PANEL_MIN_VEIL);
+      console.log(`壁纸[全局覆盖]: ${path}（${img.sizeKB}KB, 可见度 ${BG_OPACITY}%, 面板遮罩 ${panelAlpha}%, 不写配置）`);
+      parts.push(wallpaperCss(img.url, ['theme-zai-light', 'theme-zai-dark'], shellAlpha, panelAlpha));
+    }
+  }
+  return parts.join('\n');
+}
+
+const CUSTOM_CSS = await buildCss();
 
 // ---------- CDP 工具 ----------
 async function getTarget() {
@@ -521,14 +619,15 @@ async function evaluate(ws, expression) {
   return r.result?.result?.value;
 }
 
+const SLOTS_DESC = `light=${slots.light} dark=${slots.dark}`;
 const INJECT_JS = `(() => {
   const id = 'zcode-custom-theme';
   document.getElementById(id)?.remove();
   const s = document.createElement('style');
   s.id = id;
-  s.textContent = ${JSON.stringify(CUSTOM_CSS + BG_CSS)};
+  s.textContent = ${JSON.stringify(CUSTOM_CSS)};
   (document.head || document.documentElement).appendChild(s);
-  return 'injected(' + '${THEME}${VARIANT === 'auto' ? '' : ':' + VARIANT}' + '); classes=' + document.documentElement.className;
+  return 'injected(${SLOTS_DESC})' + '; classes=' + document.documentElement.className;
 })()`;
 
 async function tryInject() {
@@ -586,7 +685,8 @@ if (MODE === 'inject') {
   await injectOnce();
   await new Promise((r) => setTimeout(r, 1500));
   await screenshot(SHOT_FILE || 'shot.png');
-} else if (MODE === 'demo') {
+} else {
+  // demo: before/after 对比截图
   const page = await getTarget();
   const ws = await connect(page.webSocketDebuggerUrl);
   console.log('已连接:', page.title || page.url);
@@ -605,7 +705,4 @@ if (MODE === 'inject') {
   await writeFile(afterPath, Buffer.from(after.result.data, 'base64'));
   console.log('after 截图:', afterPath);
   ws.close();
-} else {
-  console.error('未知模式:', MODE, '—— 可用: inject | demo | shot');
-  process.exit(1);
 }

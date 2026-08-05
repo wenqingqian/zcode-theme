@@ -2,13 +2,17 @@
 # ZCode 自动换肤启动器（hack 路线 2：CDP 注入）
 #
 # 用法:
-#   zcode-theme             启动 ZCode 并注入默认主题 (amber)
-#   zcode-theme <主题>       启动并注入指定主题, 如 zcode-theme mint
-#   zcode-theme inject      不重启, 仅对运行中的实例注入主题
+#   zcode-theme             启动 ZCode 并按配置注入主题（首次默认 amber, 之后记住选择）
+#   zcode-theme <主题>       启动并把两个外观槽位都设为该主题, 如 zcode-theme sea
+#   zcode-theme inject      不重启, 仅对运行中的实例按配置注入
 #   zcode-theme inject <主题>  同上, 指定主题, 如 zcode-theme inject latte
 #   zcode-theme off         正常启动（不带调试端口, 不注入）
-#   以上任意形式可追加 --light / --dark 强制变体（默认双变体跟随 app 外观）:
-#   zcode-theme latte --dark        zcode-theme inject latte --light
+#   以上任意形式可追加 --light / --dark 选择只设置哪个外观槽位
+#   （app 浅色/深色外观各自一份配置, 缺省两个槽位都设）:
+#   zcode-theme sea --dark        zcode-theme inject mist --light
+#
+# 主题: amber | latte | mint | sea | mist（sea/mist 为内置壁纸主题, 按名注入即可）
+# 配置持久化: ~/.config/zcode-theme/config.json（只存两个槽位的主题名）
 #
 # 说明:
 #   - 单实例锁会吞掉启动参数, 需要带端口重启时必须先完全退出
@@ -46,7 +50,7 @@ inject() {
 cmd="${1:-on}"
 theme="${2:-}"
 
-# 变体 flag: --light / --dark 可出现在任意位置（等价 ZCODE_VARIANT=light|dark）
+# 槽位 flag: --light / --dark 可出现在任意位置（等价 ZCODE_VARIANT=light|dark）
 VARIANT_ARG=""
 for a in "$@"; do
   case "$a" in
