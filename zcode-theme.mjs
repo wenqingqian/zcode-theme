@@ -7,9 +7,9 @@
  *   node zcode-theme.mjs demo  [主题] [--light|--dark]       # 注入 + before/after 对比截图（试用, 不写配置）
  *   node zcode-theme.mjs shot  <png> [主题] [--light|--dark] # 注入 + 单张截图（试用, 不写配置）
  *
- * 内置主题: amber | latte | mint | sea | mist —— 每个都含浅色+深色变体，注入后跟随 app 外观切换。
- *   amber/latte/mint 为纯色主题；sea（暗蓝海面）/mist（雾山）为壁纸主题（图片内置在 wallpapers/，
- *   与纯色主题同一接口按名字注入，无需关心是图还是色）。
+ * 内置主题: amber | latte | mint | sea | mist | castle —— 每个都含浅色+深色变体，注入后跟随 app 外观切换。
+ *   amber/latte/mint 为纯色主题；sea（暗蓝海面）/mist（雾山）/castle（像素恶魔城堡）为壁纸主题
+ *  （图片内置在 wallpapers/，与纯色主题同一接口按名字注入，无需关心是图还是色）。
  *
  * 外观槽位模型：配置分 light / dark 两个槽位（app 浅色/深色外观时各自生效），
  * 持久化在 ~/.config/zcode-theme/config.json（$XDG_CONFIG_HOME 优先）：
@@ -402,15 +402,129 @@ const DARK_MINT = `
 html.theme-zai-dark, html.dark { --shiki-color-text:#ddeae3; --shiki-color-background:transparent; } /* 代码高亮 */
 `;
 
+const DARK_CASTLE = `
+/* 深色变体：Demon Castle（深紫黑 + 绯红 + 烛金 —— 配 castle.jpg 像素恶魔城堡大厅） */
+.theme-zai-dark, .dark {
+  --color-background:#14131f;            /* 深紫黑（略深于壁纸底色 #272638, 衬出画面） */
+  --color-background-alt:#181725;        /* 次级背景 */
+  --color-background-win-alt:#1d1c2e;    /* 窗口/面板 */
+  --color-header:#1d1c2e;
+  --color-panel:#1d1c2e;
+  --color-sidebar:#14131f;
+  --color-card:#1d1c2e;
+  --color-card-selected:#282741;
+  --color-popover:#1d1c2e;
+  --color-popover-header:#1d1c2e;
+  --color-input:#1d1c2e;
+  --color-menu:#1d1c2e;
+  --color-menu-hover:#282741;
+  --color-tooltip:#1d1c2e;
+  --color-tooltip-tag:#282741;
+  --color-toast:#1d1c2e;
+  --color-tab:#1d1c2e;
+  --color-tab-active:#14131f;
+  --color-brand:#e2554a;                 /* 品牌/强调色（绯红, 恶魔烛焰） */
+  --color-accent:#e2554a;
+  --color-primary:#f0e8d4;               /* 烛火暖白 */
+  --color-primary-foreground:#2a0e0c;
+  --color-foreground:#e7e1d3;            /* 正文（骨白微暖, 深紫黑上高可读） */
+  --color-foreground-subtle:color-mix(in oklab, #e7e1d3 60%, transparent);
+  --color-foreground-subtlest:color-mix(in oklab, #e7e1d3 30%, transparent);
+  --color-border:#a99bd626;              /* 暗紫边框（与砖墙同族, 低存在感但可辨） */
+  --color-border-hover:#a99bd640;
+  --color-find-highlight:#4a2430;
+  --color-find-highlight-active:#e2554a;
+  --color-interaction-ask-surface:#331c26;
+  --color-interaction-ask-foreground:#f2a08e;
+  --color-terminal-cursor:#e2554a;
+  --color-terminal-cursor-accent:#14131f;
+  --color-terminal-selection:#e2554a40;
+  --color-terminal-black:#26233a;
+  --color-terminal-red:#e05a4a;
+  --color-terminal-green:#a3b86b;
+  --color-terminal-yellow:#e8a83d;       /* 烛金 */
+  --color-terminal-blue:#8a9ad4;         /* 彩窗幽蓝 */
+  --color-terminal-magenta:#b08ad6;
+  --color-terminal-cyan:#6bb0a8;
+  --color-terminal-white:#d8d2c4;
+  --color-terminal-bright-black:#403d56;
+  --color-terminal-bright-red:#ea7466;
+  --color-terminal-bright-green:#b8cc82;
+  --color-terminal-bright-yellow:#f0bc5e;
+  --color-terminal-bright-blue:#a2b0e2;
+  --color-terminal-bright-magenta:#c4a3e2;
+  --color-terminal-bright-cyan:#86c4bd;
+  --color-terminal-bright-white:#e7e1d3;
+}
+html.theme-zai-dark, html.dark { --shiki-color-text:#e7e1d3; --shiki-color-background:transparent; } /* 代码高亮 */
+`;
+
+const CASTLE_LIGHT = `
+/* 浅色变体：Castle Stone（石堡米灰 + 深绯红 —— castle 的浅色对应） */
+.theme-zai-light {
+  --color-background:#f1ede4;            /* 石墙米 */
+  --color-background-alt:#e9e4d8;        /* 次级背景 */
+  --color-background-win-alt:#e9e4d8;    /* 窗口/面板 */
+  --color-header:#e9e4d8;
+  --color-panel:#e9e4d8;
+  --color-sidebar:#f1ede4;
+  --color-card:#faf8f1;
+  --color-card-selected:#e0d9c8;
+  --color-popover:#faf8f1;
+  --color-popover-header:#e9e4d8;
+  --color-input:#faf8f1;
+  --color-menu:#e9e4d8;
+  --color-menu-hover:#ddd6c4;
+  --color-tooltip:#faf8f1;
+  --color-toast:#faf8f1;
+  --color-tab:#e9e4d8;
+  --color-tab-active:#f1ede4;
+  --color-brand:#a83226;                 /* 品牌/强调色（深绯红, 浅底可读） */
+  --color-accent:#a83226;
+  --color-primary:#a83226;
+  --color-primary-foreground:#ffffff;
+  --color-foreground:#3c3444;            /* 正文（深紫灰, 呼应城堡砖墙） */
+  --color-foreground-subtle:color-mix(in oklab, #3c3444 60%, transparent);
+  --color-foreground-subtlest:color-mix(in oklab, #3c3444 30%, transparent);
+  --color-border:#3c344422;
+  --color-border-hover:#3c344438;
+  --color-find-highlight:#ecc9a8;
+  --color-find-highlight-active:#a83226;
+  --color-interaction-ask-surface:#f0ddd2;
+  --color-interaction-ask-foreground:#7e2418;
+  --color-terminal-cursor:#a83226;
+  --color-terminal-cursor-accent:#f1ede4;
+  --color-terminal-selection:#a8322640;
+  --color-terminal-black:#3c3444;
+  --color-terminal-red:#b03a2c;
+  --color-terminal-green:#6b8e23;
+  --color-terminal-yellow:#c77a0a;       /* 暗烛金 */
+  --color-terminal-blue:#5568a8;
+  --color-terminal-magenta:#8a5aa8;
+  --color-terminal-cyan:#2a8a80;
+  --color-terminal-white:#ddd6c4;
+  --color-terminal-bright-black:#6e6577;
+  --color-terminal-bright-red:#c04a38;
+  --color-terminal-bright-green:#7ea530;
+  --color-terminal-bright-yellow:#dd9222;
+  --color-terminal-bright-blue:#6a7dbc;
+  --color-terminal-bright-magenta:#9f72bc;
+  --color-terminal-bright-cyan:#3aa396;
+  --color-terminal-bright-white:#f1ede4;
+}
+html.theme-zai-light { --shiki-color-text:#3c3444; --shiki-color-background:transparent; } /* 代码高亮 */
+`;
+
 // ---------- 内置主题注册表 ----------
 // 纯色主题与壁纸主题同一结构：light/dark 两个外观变体 + 可选 image（wallpapers/ 下的内置图）。
 // 壁纸主题按名字注入即可，使用者无需关心是图还是色。
 const THEMES = {
-  amber: { dark: DARK_AMBER, light: AMBER_LIGHT },
-  latte: { dark: DARK_MOCHA, light: LATTE_LIGHT },
-  mint:  { dark: DARK_MINT,  light: MINT_LIGHT  },
-  sea:   { dark: DARK_MOCHA, light: LATTE_LIGHT, image: 'sea.jpg'  },  // 暗蓝海面
-  mist:  { dark: DARK_MINT,  light: MINT_LIGHT,  image: 'mist.jpg' },  // 雾山
+  amber:  { dark: DARK_AMBER,  light: AMBER_LIGHT  },
+  latte:  { dark: DARK_MOCHA,  light: LATTE_LIGHT  },
+  mint:   { dark: DARK_MINT,   light: MINT_LIGHT   },
+  sea:    { dark: DARK_MOCHA,  light: LATTE_LIGHT,  image: 'sea.jpg'    },  // 暗蓝海面
+  mist:   { dark: DARK_MINT,   light: MINT_LIGHT,   image: 'mist.jpg'   },  // 雾山
+  castle: { dark: DARK_CASTLE, light: CASTLE_LIGHT, image: 'castle.jpg' },  // 像素恶魔城堡大厅
 };
 
 // ---------- 外观槽位配置（~/.config/zcode-theme/config.json）----------

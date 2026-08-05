@@ -8,8 +8,8 @@
 #
 # 安装内容 (~/.local/bin/ 或自定义目录):
 #   zcode-theme      启动器命令 (zcode-theme / inject / off)
-#   zcode-theme.mjs  Node 注入器 (内置五套主题: amber / latte / mint / sea / mist)
-#   wallpapers/      内置壁纸主题图片 (sea.jpg 暗蓝海面 / mist.jpg 雾山)
+#   zcode-theme.mjs  Node 注入器 (内置六套主题: amber / latte / mint / sea / mist / castle)
+#   wallpapers/      内置壁纸主题图片 (sea.jpg 暗蓝海面 / mist.jpg 雾山 / castle.jpg 像素恶魔城堡)
 #
 # 卸载: rm -f "$ZCODE_THEME_DIR/zcode-theme" "$ZCODE_THEME_DIR/zcode-theme.mjs"
 #       rm -rf "$ZCODE_THEME_DIR/wallpapers"
@@ -70,6 +70,7 @@ fetch zcode-theme.mjs
 chmod +x "$INSTALL_DIR/zcode-theme" "$INSTALL_DIR/zcode-theme.mjs"
 fetch wallpapers/sea.jpg
 fetch wallpapers/mist.jpg
+fetch wallpapers/castle.jpg
 
 # ---------- PATH 检查 ----------
 case ":$PATH:" in
@@ -86,5 +87,5 @@ echo "只设浅色/深色外观槽位:   zcode-theme sea --light / --dark"
 echo "注入运行中的实例:        zcode-theme inject latte"
 echo "普通模式启动(不注入):    zcode-theme off"
 echo ""
-echo "可用主题: amber（暖琥珀）/ latte（奶油蓝）/ mint（薄荷绿）/ sea（暗蓝海面壁纸）/ mist（雾山壁纸）"
+echo "可用主题: amber（暖琥珀）/ latte（奶油蓝）/ mint（薄荷绿）/ sea（暗蓝海面壁纸）/ mist（雾山壁纸）/ castle（像素恶魔城堡壁纸）"
 echo "  均含深浅变体，跟随 app 外观自动切换；选择保存在 ~/.config/zcode-theme/config.json"

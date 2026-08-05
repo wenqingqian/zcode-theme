@@ -2,7 +2,7 @@
 
 ZCode 桌面应用（Electron）**主题注入工具**：通过 CDP 远程调试向渲染进程注入 CSS 变量覆盖，实现自定义换肤。无需修改安装目录、无需签名重打包。
 
-内置 **5 套主题**，按名字一条命令注入，图片与纯色同一接口——不用关心背后是图还是色：
+内置 **6 套主题**，按名字一条命令注入，图片与纯色同一接口——不用关心背后是图还是色：
 
 | 主题 | 浅色变体 | 深色变体 | 说明 |
 | --- | --- | --- | --- |
@@ -11,8 +11,9 @@ ZCode 桌面应用（Electron）**主题注入工具**：通过 CDP 远程调试
 | `mint` | Mint Tea（薄荷绿） | Midnight Mint（深青黑） | 纯色 |
 | `sea` | Catppuccin Latte | Catppuccin Mocha | **内置暗蓝海面壁纸** |
 | `mist` | Mint Tea | Midnight Mint | **内置雾山壁纸** |
+| `castle` | Castle Stone（石堡米灰） | Demon Castle（深紫黑 + 绯红） | **内置像素恶魔城堡大厅壁纸** |
 
-所有主题均含浅色 + 深色变体，跟随 app 外观设置自动切换；壁纸主题的图片在侧栏等透明区域自然透出（聊天区罩浓遮罩保文字可读）。壁纸图片来自 [picsum.photos](https://picsum.photos)（id/1019 海面、id/1018 雾山，Unsplash 源图，已重编码为基线 JPEG 随仓库分发）。
+所有主题均含浅色 + 深色变体，跟随 app 外观设置自动切换；壁纸主题的图片在侧栏等透明区域自然透出（聊天区罩浓遮罩保文字可读）。壁纸来源：`sea`/`mist` 来自 [picsum.photos](https://picsum.photos)（id/1019 海面、id/1018 雾山，Unsplash 源图）；`castle` 由 [ansimuz](https://opengameart.org/users/ansimuz) 的哥特教堂像素素材（Gothicvania 系列，公有领域 / public domain）拼合重制——彩窗、骷髅柱、祭坛、石像鬼、烛火大厅。均已重编码为基线 JPEG 随仓库分发。
 
 > 灵感来源：ZCode 3.5.2 起有「统一外观设置」，但只支持内置主题且**没有配置文件入口**。本工具用开发者通道（CDP）实现任意配色，不动 app 本体。
 
@@ -87,7 +88,7 @@ flag 可加在 `zcode-theme` / `inject` 命令的任意位置；也可用环境�
 ```mjs
 const DARK_AMBER = `...`    // 深色变体（Midnight Amber）
 const AMBER_LIGHT = `...`   // 浅色变体（Amber Paper）
-const THEMES = { amber: {...}, latte: {...}, mint: {...}, sea: {...}, mist: {...} }
+const THEMES = { amber: {...}, latte: {...}, mint: {...}, sea: {...}, mist: {...}, castle: {...} }
 ```
 
 改法：复制一份主题块，改 CSS 变量值（每个变量都有注释说明用途），加进 `THEMES` 即可注册新主题。核心变量速查：
@@ -106,7 +107,7 @@ const THEMES = { amber: {...}, latte: {...}, mint: {...}, sea: {...}, mist: {...
 
 ## 高级：一次性自定义图片（env 覆盖）
 
-内置壁纸主题（`sea`/`mist`）覆盖了日常使用；想临时试一张自己的图，用环境变量做**一次性全局覆盖**（叠加在两个槽位之上，不写配置文件）：
+内置壁纸主题（`sea`/`mist`/`castle`）覆盖了日常使用；想临时试一张自己的图，用环境变量做**一次性全局覆盖**（叠加在两个槽位之上，不写配置文件）：
 
 ```bash
 ZCODE_BG_IMAGE=~/Pictures/wallpaper.jpg zcode-theme inject   # 本次注入用这张图
